@@ -61,7 +61,6 @@ func Brotli(options ...Options) flamego.Handler {
 		// We've made sure compression level is valid in prepareOptions,
 		// no need to check same error again.
 		br := brotli.NewWriterLevel(ctx.ResponseWriter(), opt.CompressionLevel)
-
 		defer br.Close()
 
 		ctx.Next()
