@@ -20,7 +20,7 @@ The minimum requirement of Go is **1.16**.
 package main
 
 import (
-    "github.com/flamego/brotli"
+	"github.com/flamego/brotli"
 	"github.com/flamego/flamego"
 )
 
