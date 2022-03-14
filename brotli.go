@@ -5,9 +5,13 @@
 package brotli
 
 import (
+	"bufio"
+	"net"
+	"net/http"
 	"strings"
 
 	"github.com/andybalholm/brotli"
+	"github.com/pkg/errors"
 
 	"github.com/flamego/flamego"
 )
@@ -18,10 +22,10 @@ const (
 	headerVary            = "Vary"
 )
 
-// Options represents a struct for specifying configuration options for the Brotli middleware.
+// Options represents a struct for specifying configuration options for the
+// Brotli middleware.
 type Options struct {
-	// Compression level. Can be DefaultCompression(6) or any integer value
-	// between BestSpeed(0) and BestCompression(11) inclusive.
+	// CompressionLevel indicates the compression level. Default is 5.
 	CompressionLevel int
 }
 
@@ -58,14 +62,38 @@ func Brotli(options ...Options) flamego.Handler {
 		headers.Set(headerContentEncoding, "br")
 		headers.Set(headerVary, headerAcceptEncoding)
 
-		// We've made sure compression level is valid in prepareOptions,
-		// no need to check same error again.
+		// We've made sure compression level is valid in prepareOptions, no need to
+		// check same error again.
 		br := brotli.NewWriterLevel(ctx.ResponseWriter(), opt.CompressionLevel)
-		defer br.Close()
+		defer func() { _ = br.Close() }()
 
+		w := &responseWriter{
+			writer:         br,
+			ResponseWriter: ctx.ResponseWriter(),
+		}
+		ctx.MapTo(w, (*http.ResponseWriter)(nil))
 		ctx.Next()
 
 		// Delete content length after we know we have been written to
 		ctx.ResponseWriter().Header().Del("Content-Length")
 	})
+}
+
+type responseWriter struct {
+	writer *brotli.Writer
+	flamego.ResponseWriter
+}
+
+func (w *responseWriter) Write(p []byte) (int, error) {
+	return w.writer.Write(p)
+}
+
+var _ http.Hijacker = (*responseWriter)(nil)
+
+func (w *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := w.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, errors.New("the ResponseWriter doesn't support the Hijacker interface")
+	}
+	return hijacker.Hijack()
 }
