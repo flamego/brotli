@@ -7,53 +7,54 @@ package brotli
 import (
 	"bufio"
 	"bytes"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
+	"github.com/andybalholm/brotli"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/flamego/flamego"
 )
 
 func TestBrotli(t *testing.T) {
-	before := false
+	calledBefore := false
 
 	f := flamego.NewWithLogger(&bytes.Buffer{})
 	f.Use(Brotli(Options{-10}))
 	f.Use(func(r http.ResponseWriter) {
 		r.(flamego.ResponseWriter).Before(func(rw flamego.ResponseWriter) {
-			before = true
+			calledBefore = true
 		})
 	})
-	f.Get("/", func() string { return "hello wolrd!" })
+	f.Get("/", func() string { return "hello world!" })
 
-	// Not yet brotli.
+	// Not accepting brotli
 	resp := httptest.NewRecorder()
-	req, err := http.NewRequest("GET", "/", nil)
-	assert.Nil(t, err)
+	req, err := http.NewRequest(http.MethodGet, "/", nil)
+	require.NoError(t, err)
+
 	f.ServeHTTP(resp, req)
 
-	_, ok := resp.Result().Header[headerContentEncoding]
-	assert.False(t, ok)
-
 	ce := resp.Header().Get(headerContentEncoding)
-	assert.False(t, strings.EqualFold(ce, "br"))
+	assert.NotEqual(t, "br", ce)
 
-	// Brotli now.
+	// Accepting brotli
 	resp = httptest.NewRecorder()
 	req.Header.Set(headerAcceptEncoding, "br")
 	f.ServeHTTP(resp, req)
 
-	_, ok = resp.Result().Header[headerContentEncoding]
-	assert.True(t, ok)
-
 	ce = resp.Header().Get(headerContentEncoding)
-	assert.True(t, strings.EqualFold(ce, "br"))
+	assert.Equal(t, "br", ce)
 
-	assert.True(t, before)
+	body, err := io.ReadAll(brotli.NewReader(resp.Body))
+	require.NoError(t, err)
+	assert.Equal(t, "hello world!", string(body))
+
+	assert.True(t, calledBefore, "calledBefore")
 }
 
 type hijackableResponse struct {
@@ -65,10 +66,10 @@ func newHijackableResponse() *hijackableResponse {
 	return &hijackableResponse{header: make(http.Header)}
 }
 
-func (h *hijackableResponse) Header() http.Header           { return h.header }
-func (h *hijackableResponse) Write(buf []byte) (int, error) { return 0, nil }
-func (h *hijackableResponse) WriteHeader(code int)          {}
-func (h *hijackableResponse) Flush()                        {}
+func (h *hijackableResponse) Header() http.Header       { return h.header }
+func (h *hijackableResponse) Write([]byte) (int, error) { return 0, nil }
+func (h *hijackableResponse) WriteHeader(int)           {}
+func (h *hijackableResponse) Flush()                    {}
 func (h *hijackableResponse) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	h.Hijacked = true
 	return nil, nil, nil
@@ -81,14 +82,14 @@ func TestResponseWriterHijack(t *testing.T) {
 	f.Use(Brotli())
 	f.Use(func(rw http.ResponseWriter) {
 		hj, ok := rw.(http.Hijacker)
-		assert.True(t, ok)
+		require.True(t, ok)
 
 		_, _, err := hj.Hijack()
 		assert.Nil(t, err)
 	})
 
-	r, err := http.NewRequest("GET", "/", nil)
-	assert.Nil(t, err)
+	r, err := http.NewRequest(http.MethodGet, "/", nil)
+	require.NoError(t, err)
 
 	r.Header.Set(headerAcceptEncoding, "br")
 	f.ServeHTTP(hijackable, r)
