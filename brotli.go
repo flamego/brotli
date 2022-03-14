@@ -25,7 +25,8 @@ const (
 // Options represents a struct for specifying configuration options for the
 // brotli middleware.
 type Options struct {
-	// CompressionLevel indicates the compression level. Default is 5.
+	// CompressionLevel indicates the compression level, possible values are between
+	// 0 to 11 (from best speed to best compression). Default is 5.
 	CompressionLevel int
 }
 
