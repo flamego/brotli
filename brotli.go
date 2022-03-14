@@ -48,7 +48,7 @@ func prepareOptions(options []Options) Options {
 }
 
 // Brotli returns a Handler that adds brotli compression to all requests.
-// Make sure to include the Brotli middleware above other middleware
+// Make sure to include the brotli middleware above other middleware
 // that alter the response body (like the render middleware).
 func Brotli(options ...Options) flamego.Handler {
 	opt := prepareOptions(options)
