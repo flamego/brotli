@@ -1,9 +1,9 @@
 module github.com/flamego/brotli
 
-go 1.18
+go 1.22
 
 require (
-	github.com/andybalholm/brotli v1.1.1
+	github.com/andybalholm/brotli v1.2.0
 	github.com/flamego/flamego v1.9.5
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
