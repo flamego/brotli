@@ -9,7 +9,7 @@ Package brotli is a middleware that provides brotli compression to responses for
 
 ## Installation
 
-The minimum requirement of Go is **1.18**.
+The minimum requirement of Go is **1.22**.
 
     go get github.com/flamego/brotli
 
